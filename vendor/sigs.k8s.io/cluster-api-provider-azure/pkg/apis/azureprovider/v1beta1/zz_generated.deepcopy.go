@@ -92,6 +92,11 @@ func (in *AzureMachineProviderSpec) DeepCopyInto(out *AzureMachineProviderSpec) 
 		*out = new(SecurityProfile)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.AcceleratedNetworking != nil {
+		in, out := &in.AcceleratedNetworking, &out.AcceleratedNetworking
+		*out = new(bool)
+		**out = **in
+	}
 	return
 }
 
@@ -493,8 +498,8 @@ func (in *SpotVMOptions) DeepCopyInto(out *SpotVMOptions) {
 	*out = *in
 	if in.MaxPrice != nil {
 		in, out := &in.MaxPrice, &out.MaxPrice
-		*out = new(string)
-		**out = **in
+		x := (*in).DeepCopy()
+		*out = &x
 	}
 	return
 }

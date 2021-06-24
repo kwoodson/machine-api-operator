@@ -25,6 +25,7 @@ import (
 	"k8s.io/utils/pointer"
 	aws "sigs.k8s.io/cluster-api-provider-aws/pkg/apis/awsprovider/v1beta1"
 	azure "sigs.k8s.io/cluster-api-provider-azure/pkg/apis/azureprovider/v1beta1"
+	azurems "sigs.k8s.io/cluster-api-provider-azure/pkg/apis/cloud/azure/actuators/machineset"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/webhook/admission"
@@ -712,6 +713,10 @@ func defaultAzure(m *Machine, config *admissionConfig) (bool, []string, utilerro
 		providerSpec.Subnet = defaultAzureSubnet(config.clusterID)
 	}
 
+	if providerSpec.AcceleratedNetworking == nil {
+		providerSpec.AcceleratedNetworking = azurems.InstanceTypes[providerSpec.VMSize].AcceleratedNetworking
+	}
+
 	if providerSpec.Image == (azure.Image{}) {
 		providerSpec.Image.ResourceID = defaultAzureImageResourceID(config.clusterID)
 	}
@@ -767,6 +772,11 @@ func validateAzure(m *Machine, config *admissionConfig) (bool, []string, utilerr
 	// Vnet requires Subnet
 	if providerSpec.Vnet != "" && providerSpec.Subnet == "" {
 		errs = append(errs, field.Required(field.NewPath("providerSpec", "subnet"), "must provide a subnet when a virtual network is specified"))
+	}
+
+	// AcceleratedNetworking requires specific instance type
+	if providerSpec.AcceleratedNetworking && !azurems.InstanceTypes[providerSpec.VMSize].AcceleratedNetworking {
+		errs = append(errs, field.Required(field.NewPath("providerSpec", "acceleratedNetworking"), "accelerated networking not supported on instance type"))
 	}
 
 	// Subnet requires Vnet
