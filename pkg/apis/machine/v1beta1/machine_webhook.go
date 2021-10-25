@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"strings"
 
+	alibaba "github.com/AliyunContainerService/cluster-api-provider-alibabacloud/pkg/apis/alibabacloudprovider/v1beta1"
 	osconfigv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/api/machine/v1beta1"
 	osclientset "github.com/openshift/client-go/config/clientset/versioned"
@@ -80,6 +81,13 @@ const (
 	defaultAWSX86InstanceType   = "m5.large"
 	defaultAWSARMInstanceType   = "m6g.large"
 
+	// Alibaba Defaults
+	defaultAlibabaInstanceType      = "ecs-g6-large"
+	defaultAlibabaCredentialsSecret = "alibabacloud-credentials"
+	// defaultAlibabaOSDiskOSType      = "Linux"
+	// defaultAlibabaOSDiskStorageType = "Premium_LRS"
+	// AlibabaMaxDiskSizeGB            = 32768
+
 	// Azure Defaults
 	defaultAzureVMSize            = "Standard_D4s_V3"
 	defaultAzureCredentialsSecret = "azure-cloud-credentials"
@@ -123,7 +131,6 @@ func secretExists(c client.Client, name, namespace string) (bool, error) {
 		if apierrors.IsNotFound(err) {
 			return false, nil
 		}
-		return false, err
 	}
 	return true, nil
 }
@@ -261,6 +268,8 @@ func getMachineValidatorOperation(platform osconfigv1.PlatformType) machineAdmis
 		return validateGCP
 	case osconfigv1.VSpherePlatformType:
 		return validateVSphere
+	case osconfigv1.AlibabaCloudPlatformType:
+		return validateAlibaba
 	default:
 		// just no-op
 		return func(m *Machine, config *admissionConfig) (bool, []string, utilerrors.Aggregate) {
@@ -303,6 +312,12 @@ func getMachineDefaulterOperation(platformStatus *osconfigv1.PlatformStatus) mac
 		return defaultGCP
 	case osconfigv1.VSpherePlatformType:
 		return defaultVSphere
+	case osconfigv1.AlibabaCloudPlatformType:
+		region := ""
+		if platformStatus.AlibabaCloud != nil {
+			region = platformStatus.AlibabaCloud.Region
+		}
+		return alibabaDefaulter{region: region}.defaultAlibaba
 	default:
 		// just no-op
 		return func(m *Machine, config *admissionConfig) (bool, []string, utilerrors.Aggregate) {
@@ -722,6 +737,105 @@ func getDuplicatedTags(tagSpecs []machinev1.TagSpecification) []string {
 		}
 	}
 	return duplicatedTags
+}
+
+type alibabaDefaulter struct {
+	region string
+}
+
+func (a alibabaDefaulter) defaultAlibaba(m *Machine, config *admissionConfig) (bool, []string, utilerrors.Aggregate) {
+	klog.V(3).Infof("Defaulting Alibaba providerSpec")
+
+	var errs []error
+	var warnings []string
+	providerSpec := new(alibaba.AlibabaCloudMachineProviderConfig)
+	if err := unmarshalInto(m, providerSpec); err != nil {
+		errs = append(errs, err)
+		return false, warnings, utilerrors.NewAggregate(errs)
+	}
+
+	if providerSpec.RegionID == "" {
+		providerSpec.RegionID = a.region
+	}
+
+	if providerSpec.InstanceType == "" {
+		providerSpec.InstanceType = defaultAlibabaInstanceType
+	}
+
+	if providerSpec.UserDataSecret == nil {
+		providerSpec.UserDataSecret = &corev1.LocalObjectReference{Name: defaultUserDataSecret}
+	}
+
+	if providerSpec.CredentialsSecret == nil {
+		providerSpec.CredentialsSecret = &corev1.LocalObjectReference{Name: defaultAlibabaCredentialsSecret}
+	}
+
+	rawBytes, err := json.Marshal(providerSpec)
+	if err != nil {
+		errs = append(errs, err)
+	}
+
+	if len(errs) > 0 {
+		return false, warnings, utilerrors.NewAggregate(errs)
+	}
+
+	m.Spec.ProviderSpec.Value = &kruntime.RawExtension{Raw: rawBytes}
+	return true, warnings, nil
+}
+
+func validateAlibaba(m *Machine, config *admissionConfig) (bool, []string, utilerrors.Aggregate) {
+	klog.V(3).Info("Validating Alibaba providerSpec")
+	var errs []error
+	var warnings []string
+	providerSpec := new(alibaba.AlibabaCloudMachineProviderConfig)
+	if err := unmarshalInto(m, providerSpec); err != nil {
+		errs = append(errs, err)
+		return false, warnings, utilerrors.NewAggregate(errs)
+	}
+
+	if providerSpec.RegionID == "" {
+		errs = append(
+			errs,
+			field.Required(
+				field.NewPath("providerspec", "regionid"),
+				"expected providerSpec.regionid to be populated",
+			),
+		)
+	}
+
+	if providerSpec.InstanceType == "" {
+		errs = append(
+			errs,
+			field.Required(
+				field.NewPath("providerSpec", "instanceType"),
+				"expected providerSpec.instanceType to be populated",
+			),
+		)
+	}
+
+	if providerSpec.UserDataSecret == nil {
+		errs = append(
+			errs,
+			field.Required(
+				field.NewPath("providerSpec", "userDataSecret"),
+				"expected providerSpec.userDataSecret to be populated",
+			),
+		)
+	}
+
+	if providerSpec.CredentialsSecret == nil {
+		errs = append(
+			errs,
+			field.Required(
+				field.NewPath("providerSpec", "credentialsSecret"),
+				"expected providerSpec.credentialsSecret to be populated",
+			),
+		)
+	} else {
+		warnings = append(warnings, credentialsSecretExists(config.client, providerSpec.CredentialsSecret.Name, m.GetNamespace())...)
+	}
+
+	return true, warnings, nil
 }
 
 func defaultAzure(m *Machine, config *admissionConfig) (bool, []string, utilerrors.Aggregate) {

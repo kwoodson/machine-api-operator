@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	alibaba "github.com/AliyunContainerService/cluster-api-provider-alibabacloud/pkg/apis/alibabacloudprovider/v1beta1"
 	. "github.com/onsi/gomega"
 	osconfigv1 "github.com/openshift/api/config/v1"
 	machinev1 "github.com/openshift/api/machine/v1beta1"
@@ -112,6 +113,22 @@ func TestMachineSetCreation(t *testing.T) {
 				},
 			},
 			expectedError: "",
+		},
+		{
+			name:              "with Alibaba and a nil provider spec value",
+			platformType:      osconfigv1.AlibabaCloudPlatformType,
+			clusterID:         "test-abcde",
+			providerSpecValue: nil,
+			expectedError:     "providerSpec.value: Required value: a value must be provided",
+		},
+		{
+			name:         "with Alibaba and no fields set",
+			platformType: osconfigv1.AlibabaCloudPlatformType,
+			clusterID:    "test-alibaba",
+			providerSpecValue: &runtime.RawExtension{
+				Object: &alibaba.AlibabaCloudMachineProviderConfig{},
+			},
+			expectedError: "providerSpec.regionid: Required value: expected providerSpec.regionid to be populated",
 		},
 		{
 			name:              "with Azure and a nil provider spec value",

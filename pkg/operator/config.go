@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/davecgh/go-spew/spew"
 	configv1 "github.com/openshift/api/config/v1"
 )
 
@@ -37,6 +38,7 @@ type Controllers struct {
 // Images allows build systems to inject images for MAO components
 type Images struct {
 	MachineAPIOperator            string `json:"machineAPIOperator"`
+	ClusterAPIControllerAlibaba   string `json:"clusterAPIControllerAlibaba"`
 	ClusterAPIControllerAWS       string `json:"clusterAPIControllerAWS"`
 	ClusterAPIControllerOpenStack string `json:"clusterAPIControllerOpenStack"`
 	ClusterAPIControllerLibvirt   string `json:"clusterAPIControllerLibvirt"`
@@ -51,6 +53,7 @@ type Images struct {
 }
 
 func getProviderFromInfrastructure(infra *configv1.Infrastructure) (configv1.PlatformType, error) {
+	spew.Dump(infra)
 	if infra.Status.PlatformStatus != nil {
 		if infra.Status.PlatformStatus.Type != "" {
 			return infra.Status.PlatformStatus.Type, nil
@@ -76,6 +79,8 @@ func getProviderControllerFromImages(platform configv1.PlatformType, images Imag
 	switch platform {
 	case configv1.AWSPlatformType:
 		return images.ClusterAPIControllerAWS, nil
+	case configv1.AlibabaCloudPlatformType:
+		return images.ClusterAPIControllerAlibaba, nil
 	case configv1.LibvirtPlatformType:
 		return images.ClusterAPIControllerLibvirt, nil
 	case configv1.OpenStackPlatformType:
@@ -112,6 +117,8 @@ func getTerminationHandlerFromImages(platform configv1.PlatformType, images Imag
 		return images.ClusterAPIControllerGCP, nil
 	case configv1.AzurePlatformType:
 		return images.ClusterAPIControllerAzure, nil
+	case configv1.AlibabaCloudPlatformType:
+		return images.ClusterAPIControllerAlibaba, nil
 	default:
 		return clusterAPIControllerNoOp, nil
 	}
