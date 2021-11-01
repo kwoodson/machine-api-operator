@@ -3,8 +3,10 @@ module github.com/openshift/machine-api-operator
 go 1.16
 
 require (
+	github.com/AliyunContainerService/cluster-api-provider-alibabacloud v0.0.0-20211029124254-b90c759235e9
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/go-logr/logr v0.4.0
+	github.com/davecgh/go-spew v1.1.1
+	github.com/go-logr/logr v1.0.0
 	github.com/google/gofuzz v1.1.0
 	github.com/google/uuid v1.1.2
 	github.com/onsi/ginkgo v1.16.4
@@ -20,16 +22,22 @@ require (
 	github.com/vmware/govmomi v0.22.2
 	golang.org/x/net v0.0.0-20210520170846-37e1c6afe023
 	gopkg.in/gcfg.v1 v1.2.3
-	gopkg.in/warnings.v0 v0.1.2 // indirect
 	k8s.io/api v0.22.1
 	k8s.io/apimachinery v0.22.1
 	k8s.io/apiserver v0.22.0
-	k8s.io/client-go v0.22.0
+	k8s.io/client-go v0.22.1
 	k8s.io/code-generator v0.22.1
-	k8s.io/klog/v2 v2.9.0
+	k8s.io/klog/v2 v2.10.0
 	k8s.io/kubectl v0.22.0
-	k8s.io/utils v0.0.0-20210802155522-efc7438f0176
+	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a
 	sigs.k8s.io/controller-runtime v0.9.6
 	sigs.k8s.io/controller-tools v0.6.3-0.20210916130746-94401651a6c3
 	sigs.k8s.io/yaml v1.2.0
+)
+
+replace (
+	github.com/AliyunContainerService/cluster-api-provider-alibabacloud => github.com/kwoodson/cluster-api-provider-alibaba v0.0.0-20211101192454-1616b20483db
+	github.com/go-logr/logr => github.com/go-logr/logr v0.4.0
+	sigs.k8s.io/cluster-api-provider-aws => github.com/openshift/cluster-api-provider-aws v0.2.1-0.20211013154614-f453fb32f360
+	sigs.k8s.io/cluster-api-provider-azure => github.com/openshift/cluster-api-provider-azure v0.1.0-alpha.3.0.20211021103326-c5901272e0dd
 )
